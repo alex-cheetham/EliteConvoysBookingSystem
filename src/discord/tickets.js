@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { pad2, slugify } = require("../utils");
 const { buildBaseOverwrites, applyStageVisibility } = require("../permissions");
-const { STATUS_ICONS } = require("../config");
+const { STATUS_ICONS, STATUS_COLORS } = require("../config");
 const { setSummaryMessageId } = require("../bookingLogic");
 
 function monthCategoryName(monthIndex1, monthName, prefix) {
@@ -29,38 +29,46 @@ async function ensureMonthCategory(guild, eventDate, prefix) {
 }
 
 function channelNameForBooking(booking) {
-  const icon = STATUS_ICONS[booking.status] || STATUS_ICONS.REQUESTED;
+  const icon = STATUS_ICONS[booking.status] || "📌";
   const day = booking.event_date.split("-")[2];
   const slug = slugify(`${booking.vtc_name}-${booking.event_date}`);
   return `${icon}-${day}-${slug}`.slice(0, 95);
 }
 
 function bookingEmbed(booking) {
+  const icon = STATUS_ICONS[booking.status] || "📌";
+  const color = STATUS_COLORS[booking.status] || 0x4f8cff;
+
   const eb = new EmbedBuilder()
     .setTitle(`Booking #${booking.id} — ${booking.vtc_name}`)
-    .addFields(
-      { name: "Event Date", value: booking.event_date || "-", inline: true },
-      { name: "Meetup Time", value: `${booking.meetup_time || "-"} (${booking.timezone || "UTC"})`, inline: true },
-      { name: "Departure Time", value: `${booking.departure_time || "-"} (${booking.timezone || "UTC"})`, inline: true },
+    .setColor(color);
 
-      { name: "Server", value: booking.server || "-", inline: false },
-      { name: "Start Location", value: booking.start_location || "-", inline: true },
-      { name: "Destination", value: booking.destination || "-", inline: true },
+  if (booking.real_ops_attending) {
+    eb.setDescription("⚠️ **Real Operations will be in effect for this event.**");
+  }
 
-      { name: "DLC's Required", value: booking.dlcs_required || "-", inline: true },
-      { name: "TMP Event Link", value: booking.tmp_event_link || "-", inline: false },
+  eb.addFields(
+    { name: "Event Date", value: booking.event_date || "-", inline: true },
+    { name: "Meetup Time", value: `${booking.meetup_time || "-"} (${booking.timezone || "UTC"})`, inline: true },
+    { name: "Departure Time", value: `${booking.departure_time || "-"} (${booking.timezone || "UTC"})`, inline: true },
 
-      { name: "Status", value: booking.status || "-", inline: false }
-    )
-    .setFooter({ text: "Elite Convoys — Convoy Control Booking" });
+    { name: "Server", value: booking.server || "-", inline: false },
+    { name: "Start Location", value: booking.start_location || "-", inline: true },
+    { name: "Destination", value: booking.destination || "-", inline: true },
+
+    { name: "DLC's Required", value: booking.dlcs_required || "-", inline: true },
+    { name: "TMP Event Link", value: booking.tmp_event_link || "-", inline: false },
+
+    { name: "Status", value: `${icon} **${booking.status}**`, inline: false }
+  );
 
   if (booking.other_notes) eb.addFields({ name: "Other Notes", value: booking.other_notes });
 
+  eb.setFooter({ text: "Elite Convoys — Convoy Control Booking" });
   return eb;
 }
 
 async function ensureOrUpdateSummaryMessage(guild, channel, booking) {
-  // If we already stored a summary message ID, try to edit it
   if (booking.summary_message_id) {
     const existing = await channel.messages.fetch(booking.summary_message_id).catch(() => null);
     if (existing) {
@@ -69,7 +77,6 @@ async function ensureOrUpdateSummaryMessage(guild, channel, booking) {
     }
   }
 
-  // Otherwise, send a new summary message, pin it, and store ID
   const msg = await channel.send({ embeds: [bookingEmbed(booking)] });
   await msg.pin().catch(() => {});
   await setSummaryMessageId(guild.id, booking.id, msg.id);
@@ -80,35 +87,27 @@ async function createOrUpdateTicketChannel({ guild, booking, configPrefix }) {
   const category = await ensureMonthCategory(guild, booking.event_date, configPrefix);
   const name = channelNameForBooking(booking);
 
-  // permissions
   let overwrites = buildBaseOverwrites(guild, booking.requester_id);
   overwrites = applyStageVisibility(overwrites, booking.status);
 
-  // If ticket exists, update it
   if (booking.ticket_channel_id) {
     const ch = await guild.channels.fetch(booking.ticket_channel_id).catch(() => null);
     if (ch) {
       await ch.setName(name).catch(() => {});
       await ch.setParent(category.id).catch(() => {});
       await ch.permissionOverwrites.set(overwrites).catch(() => {});
-
-      // ✅ Update the stored summary embed in this ticket
       await ensureOrUpdateSummaryMessage(guild, ch, booking);
-
       return { channel: ch, category };
     }
   }
 
-  // Create new ticket channel
   const ch = await guild.channels.create({
     name,
     parent: category.id,
     permissionOverwrites: overwrites
   });
 
-  // ✅ Create + store the summary embed message (and pin it)
   await ensureOrUpdateSummaryMessage(guild, ch, booking);
-
   return { channel: ch, category };
 }
 

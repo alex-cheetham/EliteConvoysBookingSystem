@@ -62,9 +62,9 @@ async function createBooking({ guildId, requesterId, requesterTag, fields }) {
 
   const conflictRes = await isConflict(guildId, meetup_utc, cfg);
 
-  let status = "ACCEPTED";
-  if (conflictRes.conflict) status = "DECLINED";
-  if (!conflictRes.conflict && cfg.review_enabled) status = "REVIEW";
+  // ✅ As requested: first status should be REQUESTED (staff moves to REVIEW later)
+  let status = "REQUESTED";
+  if (conflictRes.conflict) status = "DECLINED"; // keep conflict safety
 
   await db.read();
   const newId = (db.data.bookings.at(-1)?.id || 0) + 1;
@@ -94,11 +94,12 @@ async function createBooking({ guildId, requesterId, requesterTag, fields }) {
     ticket_channel_id: null,
     ticket_category_id: null,
 
-    // ✅ We'll store the ID of the "Booking Summary" embed message in the ticket
-    summary_message_id: null,
-
     meetup_utc,
-    departure_utc
+    departure_utc,
+
+    // ✅ acceptance pack tracking (so we only send once)
+    acceptance_sent_at: null,
+    acceptance_sent_by: null
   };
 
   db.data.bookings.push(booking);
@@ -128,15 +129,19 @@ async function setTicketInfo(guildId, bookingId, channelId, categoryId) {
   await db.write();
 }
 
-// ✅ NEW: store the summary embed message id so we can edit/update it later
-async function setSummaryMessageId(guildId, bookingId, messageId) {
+async function markAcceptanceSent(guildId, bookingId, staffUsername) {
   const now = new Date().toISOString();
   await db.read();
   const b = db.data.bookings.find(x => x.guild_id === guildId && x.id === bookingId);
-  if (!b) return;
-  b.summary_message_id = messageId;
+  if (!b) return false;
+
+  if (b.acceptance_sent_at) return false; // already sent
+  b.acceptance_sent_at = now;
+  b.acceptance_sent_by = staffUsername || null;
   b.updated_at = now;
+
   await db.write();
+  return true;
 }
 
 async function getBooking(guildId, bookingId) {
@@ -156,7 +161,7 @@ module.exports = {
   createBooking,
   updateBookingStatus,
   setTicketInfo,
-  setSummaryMessageId, // ✅ export
+  markAcceptanceSent,
   getBooking,
   listBookings,
   isConflict
