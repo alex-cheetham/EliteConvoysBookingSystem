@@ -139,4 +139,33 @@ function declineEmbed(booking, staffName, reason) {
     .setTimestamp(new Date());
 }
 
-module.exports = { bookingSummaryEmbed, acceptanceMessageParts, declineEmbed };
+/**
+ * NEW: Feedback request embed (sent when status becomes COMPLETED)
+ */
+function feedbackRequestEmbed(booking, feedbackChannelId) {
+  return new EmbedBuilder()
+    .setTitle("📝 Feedback Request")
+    .setColor(0x5865f2)
+    .setDescription(
+      [
+        `Thanks for booking Elite Convoys!`,
+        ``,
+        `We’d really appreciate your feedback about your convoy control experience.`,
+        ``,
+        `➡ Please submit feedback in <#${feedbackChannelId}>`,
+        ``,
+        `**Booking ID:** ${booking.id}`,
+        `**VTC:** ${booking.vtcName}`,
+        `**Date (UTC):** ${booking.eventDate}`,
+      ].join("\n")
+    )
+    .setFooter({ text: "Your feedback helps us improve." })
+    .setTimestamp(new Date());
+}
+
+module.exports = {
+  bookingSummaryEmbed,
+  acceptanceMessageParts,
+  declineEmbed,
+  feedbackRequestEmbed
+};

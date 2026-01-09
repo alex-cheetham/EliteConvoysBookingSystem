@@ -4,11 +4,38 @@ const { requireStaff } = require("../middleware");
 const { validateBooking } = require("../../util/validate");
 const { updateTicketForBooking } = require("../../bot/tickets");
 const { STATUS_META } = require("../../util/constants");
+const { feedbackRequestEmbed } = require("../../util/embeds");
+const { sendTranscriptToChannel } = require("../../bot/transcripts");
+
+// ✅ Channel IDs (your values)
+const FEEDBACK_CHANNEL_ID = "1352358849302102117";
+const TRANSCRIPT_CHANNEL_ID = "1459314280297005148";
 
 function pushHistory(existingJson, status, by) {
   const arr = JSON.parse(existingJson || "[]");
   arr.push({ status, at: new Date().toISOString(), by });
   return JSON.stringify(arr);
+}
+
+// Helper: Only delete month categories that match "<prefix> • YYYY-MM" and are empty
+async function tryDeleteEmptyMonthCategory(guild, categoryId, ticketCategoryPrefix) {
+  if (!guild || !categoryId || !ticketCategoryPrefix) return;
+
+  await guild.channels.fetch().catch(() => {});
+  const category = guild.channels.cache.get(categoryId);
+  if (!category) return;
+
+  const ticketPrefix = `${ticketCategoryPrefix} • `;
+  const name = category.name || "";
+
+  // only touch categories created by this system
+  const key = name.slice(ticketPrefix.length).trim();
+  if (!name.startsWith(ticketPrefix) || !/^\d{4}-\d{2}$/.test(key)) return;
+
+  const children = guild.channels.cache.filter(c => c.parentId === categoryId);
+  if (children.size === 0) {
+    await category.delete("Auto cleanup: empty booking month category").catch(() => {});
+  }
 }
 
 router.get("/bookings/:id", requireStaff(), async (req, res) => {
@@ -26,6 +53,9 @@ router.post("/bookings/:id/status", requireStaff(), async (req, res) => {
   const allowed = Object.keys(STATUS_META);
   if (!allowed.includes(next)) return res.status(400).send("Invalid status");
 
+  // Detect transition into COMPLETED (for feedback message)
+  const transitionedToCompleted = booking.status !== "COMPLETED" && next === "COMPLETED";
+
   // NEW: require a decline reason if staff is declining
   let declineReason = null;
   let declineReasonSource = null;
@@ -35,7 +65,6 @@ router.post("/bookings/:id/status", requireStaff(), async (req, res) => {
     if (!declineReason) {
       return res.status(400).send("Decline reason is required when declining a booking.");
     }
-    // Keep it to a sane length for embeds / storage
     if (declineReason.length > 900) declineReason = declineReason.slice(0, 900);
     declineReasonSource = "STAFF";
   }
@@ -46,7 +75,6 @@ router.post("/bookings/:id/status", requireStaff(), async (req, res) => {
       status: next,
       statusHistory: pushHistory(booking.statusHistory, next, req.user.id),
 
-      // Only set/overwrite when declining via staff action
       ...(next === "DECLINED"
         ? { declineReason, declineReasonSource }
         : { declineReasonSource: null }
@@ -54,8 +82,27 @@ router.post("/bookings/:id/status", requireStaff(), async (req, res) => {
     }
   });
 
+  const client = require("../../bot/client").getBotClient();
+
   // Update Discord ticket name/embeds/perms and send acceptance pack if needed
-  await updateTicketForBooking(require("../../bot/client").getBotClient(), updated.id, req.user.id);
+  await updateTicketForBooking(client, updated.id, req.user.id);
+
+  // ✅ Feedback prompt ONLY when transitioning into COMPLETED
+  if (transitionedToCompleted && updated.ticketChannelId) {
+    const guild = await client.guilds.fetch(updated.guildId).catch(() => null);
+    const channel = guild
+      ? await guild.channels.fetch(updated.ticketChannelId).catch(() => null)
+      : null;
+
+    const config = await prisma.guildConfig.findUnique({ where: { id: updated.guildId } });
+
+    if (channel && channel.isTextBased?.()) {
+      await channel.send({
+        content: `<@${updated.requesterId}>`,
+        embeds: [feedbackRequestEmbed(updated, FEEDBACK_CHANNEL_ID)]
+      }).catch(() => {});
+    }
+  }
 
   res.redirect(`/bookings/${booking.id}`);
 });
@@ -126,14 +173,41 @@ router.post("/bookings/:id/delete", requireStaff(), async (req, res) => {
   const confirm = String(req.body.confirm || "") === "DELETE";
   if (!confirm) return res.status(400).send('Type "DELETE" to confirm.');
 
-  // Delete Discord channel
   const client = require("../../bot/client").getBotClient();
-  const guild = await client.guilds.fetch(booking.guildId);
-  const channel = await guild.channels.fetch(booking.ticketChannelId).catch(() => null);
-  if (channel) await channel.delete("Booking deleted from web panel").catch(() => {});
+  const guild = await client.guilds.fetch(booking.guildId).catch(() => null);
+
+  // Load config so we can safely clean up month categories after delete
+  const config = await prisma.guildConfig.findUnique({ where: { id: booking.guildId } });
+
+  // Delete Discord channel (but FIRST: transcript if COMPLETED)
+  let parentCategoryId = null;
+
+  if (guild && booking.ticketChannelId) {
+    const channel = await guild.channels.fetch(booking.ticketChannelId).catch(() => null);
+
+    if (channel) {
+      parentCategoryId = channel.parentId || null;
+
+      // ✅ Transcript only posts if booking.status === "COMPLETED" (enforced inside helper)
+      await sendTranscriptToChannel(
+        client,
+        booking.guildId,
+        channel,
+        booking,
+        TRANSCRIPT_CHANNEL_ID
+      );
+
+      await channel.delete("Booking deleted from web panel").catch(() => {});
+    }
+  }
 
   // Delete DB
   await prisma.booking.delete({ where: { id: booking.id } });
+
+  // ✅ Auto-delete empty month category
+  if (guild && parentCategoryId && config?.ticketCategoryPrefix) {
+    await tryDeleteEmptyMonthCategory(guild, parentCategoryId, config.ticketCategoryPrefix);
+  }
 
   res.redirect("/dashboard");
 });
