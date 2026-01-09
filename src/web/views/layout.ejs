@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title><%= title %> • Elite Convoys</title>
+
+  <!-- Tailwind via CDN (simple + clean for VPS) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/public/app.css" />
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <div class="min-h-screen flex">
+    <aside class="w-72 bg-zinc-900/60 border-r border-zinc-800 p-5 hidden md:block">
+      <div class="text-xl font-semibold">🚚 Elite Convoys</div>
+      <div class="text-xs text-zinc-400 mt-1">Staff Panel</div>
+
+      <nav class="mt-6 space-y-2">
+        <a class="nav <%= path.startsWith('/dashboard') ? 'active' : '' %>" href="/dashboard">Dashboard</a>
+        <a class="nav <%= path.startsWith('/blackouts') ? 'active' : '' %>" href="/blackouts">Closures</a>
+        <a class="nav <%= path.startsWith('/config') ? 'active' : '' %>" href="/config">Configuration</a>
+      </nav>
+
+      <div class="mt-8 pt-6 border-t border-zinc-800">
+        <% if (user) { %>
+          <div class="text-sm text-zinc-300">Logged in as</div>
+          <div class="font-medium"><%= user.username %></div>
+          <form method="post" action="/logout" class="mt-3">
+            <button class="btn w-full">Logout</button>
+          </form>
+        <% } %>
+      </div>
+    </aside>
+
+    <main class="flex-1 p-6 md:p-10">
+      <%- body %>
+    </main>
+  </div>
+</body>
+</html>

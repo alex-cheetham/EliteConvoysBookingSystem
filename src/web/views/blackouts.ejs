@@ -1,0 +1,44 @@
+<%- include('layout', { title, path, user, body: `
+<div class="flex items-end justify-between gap-4">
+  <div>
+    <div class="text-3xl font-semibold">Closures</div>
+    <div class="text-zinc-400 mt-1">Prevent conflicting bookings by blocking time ranges (UTC). Requests overlapping a closure will be auto-declined using the closure reason.</div>
+  </div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card p-5">
+    <div class="text-lg font-semibold">Add Closure</div>
+    <form class="mt-4 space-y-3" method="post" action="/blackouts/create">
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Start (UTC ISO)</div>
+        <input name="startUtc" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder="2026-01-15T18:00:00Z" />
+      </label>
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">End (UTC ISO)</div>
+        <input name="endUtc" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder="2026-01-15T22:00:00Z" />
+      </label>
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Reason (required)</div>
+        <input name="reason" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder="e.g. Staff unavailable / maintenance / restricted time..." />
+      </label>
+      <button class="btn w-full px-4 py-3">Create</button>
+    </form>
+  </div>
+
+  <div class="card p-5">
+    <div class="text-lg font-semibold">Existing Closures</div>
+    <div class="mt-4 space-y-3">
+      ${blackouts.map(b => `
+        <div class="p-4 rounded-2xl border border-zinc-800 bg-zinc-950/30">
+          <div class="font-medium">${new Date(b.startUtc).toISOString()} → ${new Date(b.endUtc).toISOString()}</div>
+          <div class="text-zinc-400 text-sm mt-1">${b.reason || "No reason set"}</div>
+          <form method="post" action="/blackouts/${b.id}/delete" class="mt-3">
+            <button class="btn px-3 py-2">Delete</button>
+          </form>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+</div>
+` }) %>

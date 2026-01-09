@@ -1,0 +1,235 @@
+<%
+  const meta = STATUS_META[booking.status];
+  const statuses = Object.keys(STATUS_META);
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function statusBtn(s){
+    const m = STATUS_META[s];
+    const active = booking.status === s;
+
+    // DECLINED uses a JS overlay to collect reason
+    if (s === "DECLINED") {
+      return `
+        <button type="button"
+          class="btn px-3 py-2 ${active ? 'ring-2 ring-zinc-200/30' : ''}"
+          ${active ? 'disabled' : ''}
+          onclick="openDeclineModal()">
+          ${m.emoji} ${m.label}
+        </button>
+      `;
+    }
+
+    return `
+      <form method="post" action="/bookings/${booking.id}/status" class="inline">
+        <input type="hidden" name="status" value="${s}" />
+        <button class="btn px-3 py-2 ${active ? 'ring-2 ring-zinc-200/30' : ''}" ${active ? 'disabled' : ''}>
+          ${m.emoji} ${m.label}
+        </button>
+      </form>
+    `;
+  }
+%>
+
+<%- include('layout', { title, path, user, body: `
+<div class="flex items-start justify-between gap-4">
+  <div>
+    <div class="text-3xl font-semibold">${meta.emoji} ${escapeHtml(booking.vtcName)}</div>
+    <div class="text-zinc-400 mt-1">Booking ID: <span class="font-mono">${booking.id}</span></div>
+  </div>
+  <div class="badge">${meta.emoji} ${meta.label}</div>
+</div>
+
+${booking.status === "DECLINED" && booking.declineReason ? `
+  <div class="mt-6 card p-5 border border-red-500/30">
+    <div class="text-lg font-semibold text-red-300">Declined Reason</div>
+    <div class="text-zinc-300 mt-2 whitespace-pre-wrap">${escapeHtml(booking.declineReason)}</div>
+    ${booking.declineReasonSource ? `<div class="text-xs text-zinc-500 mt-2">Source: ${escapeHtml(booking.declineReasonSource)}</div>` : ``}
+  </div>
+` : ``}
+
+<div class="mt-6 card p-5">
+  <div class="text-lg font-semibold">Status Workflow</div>
+  <div class="text-zinc-400 text-sm mt-1">Buttons only (no dropdowns). Updates Discord ticket instantly.</div>
+  <div class="mt-4 flex flex-wrap gap-2">
+    ${statuses.map(statusBtn).join("")}
+  </div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 card p-5">
+    <div class="text-lg font-semibold">Event Details</div>
+    <form class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/bookings/${booking.id}/edit">
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">VTC Name</div>
+        <input name="vtcName" value="${escapeHtml(booking.vtcName)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Server</div>
+        <input name="serverName" value="${escapeHtml(booking.serverName)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Event Date (UTC)</div>
+        <input name="eventDate" value="${escapeHtml(booking.eventDate)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Meetup Time (UTC)</div>
+        <input name="meetupTime" value="${escapeHtml(booking.meetupTime)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Departure Time (UTC)</div>
+        <input name="departureTime" value="${escapeHtml(booking.departureTime)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Required DLCs</div>
+        <input name="requiredDlcs" value="${escapeHtml(booking.requiredDlcs)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block md:col-span-2">
+        <div class="text-xs text-zinc-400 mb-1">Start Location</div>
+        <input name="startLocation" value="${escapeHtml(booking.startLocation)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block md:col-span-2">
+        <div class="text-xs text-zinc-400 mb-1">Destination</div>
+        <input name="destination" value="${escapeHtml(booking.destination)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block md:col-span-2">
+        <div class="text-xs text-zinc-400 mb-1">TruckersMP Event Link</div>
+        <input name="tmpEventLink" value="${escapeHtml(booking.tmpEventLink)}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+      </label>
+
+      <label class="block md:col-span-2">
+        <div class="text-xs text-zinc-400 mb-1">Notes (client)</div>
+        <textarea name="notes" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" rows="4">${escapeHtml(booking.notes || "")}</textarea>
+      </label>
+
+      <div class="md:col-span-2 mt-2 flex items-center gap-3">
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" name="realOpsAttending" ${booking.realOpsAttending ? "checked" : ""} />
+          <span class="text-sm text-zinc-300">Real Ops Attending</span>
+        </label>
+      </div>
+
+      <label class="block md:col-span-2">
+        <div class="text-xs text-zinc-400 mb-1">Internal Notes (staff only)</div>
+        <textarea name="internalNotes" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" rows="4">${escapeHtml(booking.internalNotes || "")}</textarea>
+      </label>
+
+      <div class="md:col-span-2 flex justify-end">
+        <button class="btn px-4 py-3">Save Changes</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="space-y-6">
+    <div class="card p-5">
+      <div class="text-lg font-semibold">Request Additional Information</div>
+      <form class="mt-4" method="post" action="/bookings/${booking.id}/request-info">
+        <textarea name="message" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" rows="5" placeholder="Ask the requester for missing details..."></textarea>
+        <button class="btn mt-3 w-full px-4 py-3">Send to Ticket</button>
+      </form>
+    </div>
+
+    <div class="card p-5 border border-red-500/30">
+      <div class="text-lg font-semibold text-red-300">Delete Booking</div>
+      <div class="text-zinc-400 text-sm mt-1">Deletes the database entry and the Discord ticket channel.</div>
+      <form class="mt-4" method="post" action="/bookings/${booking.id}/delete">
+        <input name="confirm" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder='Type DELETE to confirm' />
+        <button class="btn mt-3 w-full px-4 py-3 bg-red-500/10 border-red-500/30 hover:bg-red-500/20">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Decline Reason Overlay -->
+<div id="declineOverlay" class="fixed inset-0 hidden items-center justify-center z-50">
+  <div class="absolute inset-0 bg-black/70" onclick="closeDeclineModal()"></div>
+
+  <div class="relative w-[min(680px,92vw)] card p-5 border border-red-500/30">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <div class="text-lg font-semibold text-red-300">Decline Booking</div>
+        <div class="text-zinc-400 text-sm mt-1">A decline reason is required and will be shown in the ticket.</div>
+      </div>
+      <button class="btn px-3 py-2" onclick="closeDeclineModal()" type="button">✕</button>
+    </div>
+
+    <form method="post" action="/bookings/${booking.id}/status" class="mt-4" onsubmit="return validateDeclineReason()">
+      <input type="hidden" name="status" value="DECLINED" />
+      <label class="block">
+        <div class="text-xs text-zinc-400 mb-1">Decline Reason</div>
+        <textarea id="declineReason" name="declineReason"
+          class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3"
+          rows="5"
+          placeholder="Enter a clear reason (e.g. conflicts, missing details, closure, etc.)..."></textarea>
+      </label>
+
+      <div id="declineError" class="hidden mt-3 text-sm text-red-300"></div>
+
+      <div class="mt-4 flex gap-3 justify-end">
+        <button type="button" class="btn px-4 py-3" onclick="closeDeclineModal()">Cancel</button>
+        <button type="submit" class="btn px-4 py-3 bg-red-500/10 border-red-500/30 hover:bg-red-500/20">
+          ❌ Decline Booking
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openDeclineModal() {
+    const el = document.getElementById("declineOverlay");
+    el.classList.remove("hidden");
+    el.classList.add("flex");
+    setTimeout(() => document.getElementById("declineReason")?.focus(), 50);
+  }
+
+  function closeDeclineModal() {
+    const el = document.getElementById("declineOverlay");
+    el.classList.add("hidden");
+    el.classList.remove("flex");
+    const err = document.getElementById("declineError");
+    if (err) { err.classList.add("hidden"); err.textContent = ""; }
+  }
+
+  function validateDeclineReason() {
+    const ta = document.getElementById("declineReason");
+    const err = document.getElementById("declineError");
+    const val = (ta?.value || "").trim();
+
+    if (!val) {
+      if (err) {
+        err.textContent = "Please enter a decline reason.";
+        err.classList.remove("hidden");
+      }
+      ta?.focus();
+      return false;
+    }
+
+    if (val.length > 900) {
+      if (err) {
+        err.textContent = "Decline reason is too long (max 900 characters).";
+        err.classList.remove("hidden");
+      }
+      ta?.focus();
+      return false;
+    }
+
+    return true;
+  }
+</script>
+` }) %>

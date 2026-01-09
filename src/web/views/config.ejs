@@ -1,0 +1,53 @@
+<%- include('layout', { title, path, user, body: `
+<div class="text-3xl font-semibold">Configuration</div>
+<div class="text-zinc-400 mt-1">Change system behavior without editing code.</div>
+
+<div class="mt-6 card p-5 max-w-3xl">
+  <form method="post" action="/config/save" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <label class="block md:col-span-2">
+      <div class="text-xs text-zinc-400 mb-1">Staff Role ID</div>
+      <input name="staffRoleId" value="${config.staffRoleId || ""}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder="Role ID that can access panel" />
+    </label>
+
+    <label class="block md:col-span-2">
+      <div class="text-xs text-zinc-400 mb-1">Ticket Category Prefix</div>
+      <input name="ticketCategoryPrefix" value="${config.ticketCategoryPrefix}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+    </label>
+
+    <label class="block">
+      <div class="text-xs text-zinc-400 mb-1">Default Event Duration (minutes)</div>
+      <input name="defaultEventDurationM" value="${config.defaultEventDurationM}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+    </label>
+
+    <label class="block">
+      <div class="text-xs text-zinc-400 mb-1">Buffer Time (minutes)</div>
+      <input name="bufferTimeM" value="${config.bufferTimeM}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" />
+    </label>
+
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="reviewMode" ${config.reviewMode ? "checked" : ""} />
+      <span class="text-sm text-zinc-300">Review mode (new requests start in REVIEW)</span>
+    </label>
+
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="realOpsWarning" ${config.realOpsWarning ? "checked" : ""} />
+      <span class="text-sm text-zinc-300">Show Real Ops warning in ticket embed</span>
+    </label>
+
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="remindersEnabled" ${config.remindersEnabled ? "checked" : ""} />
+      <span class="text-sm text-zinc-300">Enable reminders</span>
+    </label>
+
+    <label class="block md:col-span-2">
+      <div class="text-xs text-zinc-400 mb-1">Reminder timings (minutes CSV)</div>
+      <input name="reminderMinutesCsv" value="${config.reminderMinutesCsv}" class="w-full bg-zinc-950/40 border border-zinc-800 rounded-xl p-3" placeholder="1440,120,30" />
+      <div class="text-xs text-zinc-500 mt-1">Example: 1440 = 24h before, 120 = 2h, 30 = 30m</div>
+    </label>
+
+    <div class="md:col-span-2 flex justify-end">
+      <button class="btn px-4 py-3">Save</button>
+    </div>
+  </form>
+</div>
+` }) %>

@@ -1,0 +1,46 @@
+<%
+  function badgeFor(b){
+    const m = STATUS_META[b.status];
+    return `<span class="badge"><span>${m.emoji}</span><span>${m.label}</span></span>`;
+  }
+%>
+
+<%- include('layout', { title, path, user, body: `
+<div class="flex items-end justify-between gap-4">
+  <div>
+    <div class="text-3xl font-semibold">Dashboard</div>
+    <div class="text-zinc-400 mt-1">All bookings overview with live status badges.</div>
+  </div>
+</div>
+
+<div class="mt-6 card p-5 overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-zinc-400">
+      <tr>
+        <th class="text-left py-2">Status</th>
+        <th class="text-left py-2">VTC</th>
+        <th class="text-left py-2">Date</th>
+        <th class="text-left py-2">Meetup</th>
+        <th class="text-left py-2">Server</th>
+        <th class="text-left py-2">Requester</th>
+        <th class="text-right py-2">Manage</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bookings.map(b => `
+        <tr class="border-t border-zinc-800/70">
+          <td class="py-3">${badgeFor(b)}</td>
+          <td class="py-3 font-medium">${b.vtcName}</td>
+          <td class="py-3">${b.eventDate}</td>
+          <td class="py-3">${b.meetupTime}</td>
+          <td class="py-3">${b.serverName}</td>
+          <td class="py-3">${b.requesterTag}</td>
+          <td class="py-3 text-right">
+            <a class="btn px-3 py-2 inline-block" href="/bookings/${b.id}">Open</a>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</div>
+` }) %>

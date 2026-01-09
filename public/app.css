@@ -1,0 +1,37 @@
+.nav{
+  display:block;
+  padding:10px 12px;
+  border-radius:14px;
+  color:#d4d4d8;
+  background: rgba(24,24,27,0.35);
+  border: 1px solid rgba(63,63,70,0.4);
+  transition: transform .08s ease, background .12s ease;
+}
+.nav:hover{ transform: translateY(-1px); background: rgba(39,39,42,0.55); }
+.nav.active{ background: rgba(39,39,42,0.85); border-color: rgba(113,113,122,0.6); color: white; }
+
+.card{
+  border-radius: 20px;
+  border: 1px solid rgba(63,63,70,0.55);
+  background: rgba(24,24,27,0.55);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.btn{
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(63,63,70,0.55);
+  background: rgba(39,39,42,0.6);
+}
+.btn:hover{ background: rgba(63,63,70,0.55); }
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border-radius:999px;
+  padding:6px 10px;
+  border:1px solid rgba(63,63,70,0.6);
+  background: rgba(39,39,42,0.55);
+  font-size: 12px;
+}
